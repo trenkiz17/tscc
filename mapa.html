@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroRisk - Safra Inteligente</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<style>
+    body { font-family: Arial; margin:0; padding:0; }
+    header { padding: 10px; background-color: #f2f2f2; }
+    #map { height: 400px; margin: 20px; }
+    .controls { margin: 20px; }
+    .controls label, .controls select, .controls input { display: block; margin: 5px 0; }
+    #resultadoSafra { margin: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; }
+    #resultadoSafra h3 { margin-top:0; }
+    .risco-alto { color: red; font-weight:bold; }
+    .risco-medio { color: orange; font-weight:bold; }
+    .risco-baixo { color: green; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<header>
+    <h2>🌾 AgroRisk - Safra Inteligente</h2>
+    <p>Fazenda: <span id="nomeFazenda"></span> | Solo: <span id="tipoSolo"></span></p>
+</header>
+
+<div id="map"></div>
+<p>Área Total: <span id="area">0</span> hectares</p>
+
+<div class="controls">
+    <label>O que deseja plantar?</label>
+    <input type="text" id="cultivo" placeholder="Ex: Soja, Milho, Feijão, Trigo">
+    
+    <label>Usou fertilizante?</label>
+    <select id="fertilizante">
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+    </select>
+    <input type="number" id="quantFert" placeholder="Quantidade de fertilizante (kg/ha)" style="display:none;">
+    
+    <label>Data de plantio:</label>
+    <input type="date" id="dataPlantio">
+</div>
+
+<div id="resultadoSafra">
+    <h3>Resumo da Safra</h3>
+    <p>Área: <span id="resArea">0</span> ha</p>
+    <p>Solo: <span id="resSolo">--</span></p>
+    <p>Cultivo: <span id="resCultivo">--</span></p>
+    <p>Temperatura: <span id="resTemp">--</span> °C</p>
+    <p>Chuva: <span id="resChuva">--</span> mm</p>
+    <p>Vento: <span id="resVento">--</span> km/h</p>
+    <p>Fertilizante: <span id="resFert">Não</span></p>
+    <p>Quantidade de fertilizante: <span id="resQuantFert">0</span> kg/ha</p>
+    <p>Tempo estimado de crescimento: <span id="resDias">0</span> dias</p>
+    <p>Data estimada da colheita: <span id="resColheita">--</span></p>
+    <p>Risco da safra: <span id="resRisco">--</span></p>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/leaflet-geometryutil"></script>
+
+<script>
+const nomeFazenda = localStorage.getItem("fazenda") || "Minha Fazenda";
+const municipio = localStorage.getItem("municipio") || "Belo Horizonte";
+document.getElementById("nomeFazenda").innerText = nomeFazenda;
+
+let areaTotal = 0;
+let layerAtual = null;
+let chuvaAtual = 100;
+
+// Mostrar/ocultar input de fertilizante
+document.getElementById("fertilizante").addEventListener("change", function(){
+    document.getElementById("quantFert").style.display = this.value === "sim" ? "block" : "none";
+    atualizarSafra();
+});
+document.getElementById("quantFert").addEventListener("input", atualizarSafra);
+document.getElementById("dataPlantio").addEventListener("change", atualizarSafra);
+document.getElementById("cultivo").addEventListener("input", atualizarSafra);
+
+// Lista de solos brasileiros
+const listaSolos = ["Argiloso","Arenoso","Misto","Latossolo vermelho","Latossolo vermelho-amarelo","Latossolo amarelo","Nitossolo","Cambissolo","Planossolo","Gleissolo","Andossolo","Espodossolo","Organossolo"];
+
+// Função para escolher solo automático
+function soloAutomatico() {
+    const index = Math.floor(Math.random() * listaSolos.length);
+    return listaSolos[index];
+}
+
+// Função de cálculo de dias baseado no solo, cultivo e fertilizante
+function calcularDiasCrescimento(solo, cultivo, fertilizante, chuva){
+    let diasBase = 120;
+
+    // Ajuste pelo solo
+    switch(solo.toLowerCase()){
+        case "argiloso": diasBase = 125; break;
+        case "arenoso": diasBase = 110; break;
+        case "misto": diasBase = 115; break;
+        case "latossolo vermelho": diasBase = 120; break;
+        case "latossolo vermelho-amarelo": diasBase = 118; break;
+        case "latossolo amarelo": diasBase = 117; break;
+        case "nitossolo": diasBase = 122; break;
+        case "cambissolo": diasBase = 119; break;
+        case "planossolo": diasBase = 121; break;
+        case "gleissolo": diasBase = 124; break;
+        case "andossolo": diasBase = 116; break;
+        case "espodossolo": diasBase = 115; break;
+        case "organossolo": diasBase = 130; break;
+    }
+
+    // Ajuste pelo cultivo
+    switch(cultivo.toLowerCase()){
+        case "soja": diasBase *= 1; break;
+        case "milho": diasBase *= 0.9; break;
+        case "feijão": diasBase *= 0.85; break;
+        case "trigo": diasBase *= 1.1; break;
+        default: diasBase *= 1; break;
+    }
+
+    // Ajuste pelo fertilizante (reduz dias)
+    if(fertilizante === "sim") diasBase *= 0.95;
+
+    // Ajuste pelo clima
+    if(chuva < 50) diasBase += 10;
+    else if(chuva > 150) diasBase -= 5;
+
+    return Math.round(diasBase);
+}
+
+// Função de risco
+function calcularRisco(chuva){
+    if(chuva < 50) return "Alto";
+    else if(chuva > 150) return "Baixo";
+    return "Médio";
+}
+
+// Atualizar painel da safra
+function atualizarSafra(){
+    if(!layerAtual) return;
+
+    const fertilizante = document.getElementById("fertilizante").value;
+    const quantFert = parseFloat(document.getElementById("quantFert").value) || 0;
+    const dataPlantio = document.getElementById("dataPlantio").value || new Date().toISOString().split('T')[0];
+    const cultivo = document.getElementById("cultivo").value || "--";
+
+    const solo = layerAtual.solo;
+    const diasCrescimento = calcularDiasCrescimento(solo, cultivo, fertilizante, chuvaAtual);
+
+    const plantio = new Date(dataPlantio);
+    const colheita = new Date(plantio);
+    colheita.setDate(plantio.getDate() + diasCrescimento);
+
+    const risco = calcularRisco(chuvaAtual);
+    let riscoClass = "risco-medio";
+    if(risco === "Alto") riscoClass="risco-alto";
+    else if(risco==="Baixo") riscoClass="risco-baixo";
+
+    document.getElementById("resArea").innerText = areaTotal.toFixed(2);
+    document.getElementById("resSolo").innerText = solo;
+    document.getElementById("resCultivo").innerText = cultivo;
+    document.getElementById("resTemp").innerText = layerAtual.temp;
+    document.getElementById("resChuva").innerText = layerAtual.chuva;
+    document.getElementById("resVento").innerText = layerAtual.vento;
+    document.getElementById("resFert").innerText = fertilizante === "sim" ? "Sim" : "Não";
+    document.getElementById("resQuantFert").innerText = quantFert.toFixed(1);
+    document.getElementById("resDias").innerText = diasCrescimento;
+    document.getElementById("resColheita").innerText = colheita.toLocaleDateString();
+    document.getElementById("resRisco").innerText = risco;
+    document.getElementById("resRisco").className = riscoClass;
+}
+
+// Geocodificar município
+async function geocodeMunicipio(mun){
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${mun}+Brasil`);
+    const data = await res.json();
+    if(data.length>0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    return [-19.9208,-43.9378];
+}
+
+// Pegar centro da área desenhada
+function getCenterLatLng(layer){
+    if(layer.getBounds){
+        return layer.getBounds().getCenter();
+    } else if(layer.getLatLng){
+        return layer.getLatLng();
+    }
+    return null;
+}
+
+// Inicializar mapa
+async function init(){
+    const coords = await geocodeMunicipio(municipio);
+
+    const map = L.map('map').setView(coords, 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        attribution:'&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const drawControl = new L.Control.Draw({
+        draw:{polygon:true,rectangle:true,circle:false,marker:false,polyline:false},
+        edit:{featureGroup:drawnItems}
+    });
+    map.addControl(drawControl);
+
+    map.on(L.Draw.Event.CREATED, function(e){
+        const layer = e.layer;
+        drawnItems.clearLayers();
+        drawnItems.addLayer(layer);
+        layerAtual = layer;
+
+        let coordsLayer = layer.getLatLngs()[0];
+        if(layer instanceof L.Rectangle) coordsLayer = layer.getLatLngs()[0];
+        areaTotal = L.GeometryUtil.geodesicArea(coordsLayer)/10000;
+        document.getElementById("area").innerText = areaTotal.toFixed(2);
+
+        const center = getCenterLatLng(layer);
+
+        // Solo automático
+        layerAtual.solo = soloAutomatico();
+        document.getElementById("tipoSolo").innerText = layerAtual.solo;
+
+        // Clima fictício
+        layerAtual.temp = (20 + Math.random()*10).toFixed(1);
+        layerAtual.vento = (5 + Math.random()*15).toFixed(1);
+        layerAtual.chuva = (50 + Math.random()*150).toFixed(1);
+        chuvaAtual = parseFloat(layerAtual.chuva);
+
+        atualizarSafra();
+    });
+}
+init();
+</script>
+
+</body>
+</html>

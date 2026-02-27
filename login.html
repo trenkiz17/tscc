@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroRisk - Login</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h3>Login</h3>
+        <input type="email" id="usuario" placeholder="Email">
+        <input type="password" id="senha" placeholder="Senha">
+        <button id="btnLogin">Entrar</button>
+        <p>Não tem conta? <a href="cadastro_usuario.html">Criar Conta</a></p>
+    </div>
+</div>
+
+<script>
+document.getElementById("btnLogin").addEventListener("click", () => {
+    const email = document.getElementById("usuario").value.trim();
+    const senha = document.getElementById("senha").value;
+
+    // Pegar usuários salvos
+    const usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+
+    // Verificar se email e senha existem
+    const usuario = usuarios.find(u => u.email === email && u.senha === senha);
+
+    if(usuario){
+        // Salva usuário logado temporariamente
+        localStorage.setItem("usuarioLogado", JSON.stringify(usuario));
+        alert("Login realizado com sucesso!");
+        window.location.href = "cadastro_fazenda.html"; // Vai para cadastro da fazenda
+    } else {
+        alert("Email ou senha incorretos!");
+    }
+});
+</script>
+
+</body>
+</html>
