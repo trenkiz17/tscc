@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroRisk - Cadastro da Fazenda</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h3>Cadastro da Fazenda</h3>
+        <input type="text" id="fazenda" placeholder="Nome da Fazenda">
+        <input type="text" id="municipio" placeholder="Município">
+        <select id="solo">
+            <option value="argiloso">Solo Argiloso</option>
+            <option value="arenoso">Solo Arenoso</option>
+            <option value="misto">Solo Misto</option>
+            <option value="latossolo vermelho">Latossolo Vermelho</option>
+            <option value="latossolo vermelho-amarelo">Latossolo Vermelho-Amarelo</option>
+            <option value="latossolo amarelo">Latossolo Amarelo</option>
+            <option value="nitossolo">Nitossolo</option>
+            <option value="cambissolo">Cambissolo</option>
+            <option value="planossolo">Planossolo</option>
+            <option value="gleissolo">Gleissolo</option>
+            <option value="andossolo">Andossolo</option>
+            <option value="espodossolo">Espodossolo</option>
+            <option value="organossolo">Organossolo</option>
+        </select>
+        <button id="btnMapa">Ir para o Mapa</button>
+        
+    </div>
+</div>
+
+<script>
+document.getElementById("btnMapa").addEventListener("click", () => {
+    const fazenda = document.getElementById("fazenda").value;
+    const municipio = document.getElementById("municipio").value;
+    const solo = document.getElementById("solo").value;
+
+    if(!fazenda || !municipio){
+        alert("Preencha todos os campos!");
+        return;
+    }
+
+    localStorage.setItem("fazenda", fazenda);
+    localStorage.setItem("municipio", municipio);
+    localStorage.setItem("solo", solo);
+
+    window.location.href = "mapa.html";
+});
+</script>
+
+</body>
+</html>

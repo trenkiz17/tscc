@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroRisk - Criar Conta</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h3>Criar Conta</h3>
+        <input type="text" id="nome" placeholder="Nome Completo">
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="senha" placeholder="Senha">
+        <input type="password" id="confSenha" placeholder="Confirmar Senha">
+        <button id="btnCriarConta">Cadastrar</button>
+        <p>Voltar para <a href="login.html">Login</a></p>
+    </div>
+</div>
+
+<script>
+document.getElementById("btnCriarConta").addEventListener("click", () => {
+    const nome = document.getElementById("nome").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const senha = document.getElementById("senha").value;
+    const confSenha = document.getElementById("confSenha").value;
+
+    // Validação básica
+    if(!nome || !email || !senha || !confSenha){
+        alert("Preencha todos os campos!");
+        return;
+    }
+
+    if(senha !== confSenha){
+        alert("As senhas não coincidem!");
+        return;
+    }
+
+    // Pegar usuários existentes
+    let usuarios = JSON.parse(localStorage.getItem("usuarios")) || [];
+
+    // Verificar se o email já existe
+    if(usuarios.some(u => u.email === email)){
+        alert("Este email já está cadastrado!");
+        return;
+    }
+
+    // Adicionar novo usuário
+    usuarios.push({nome, email, senha});
+    localStorage.setItem("usuarios", JSON.stringify(usuarios));
+
+    alert("Conta criada com sucesso! Você será redirecionado para login.");
+    window.location.href = "login.html"; // REDIRECIONA AUTOMATICAMENTE PARA LOGIN
+});
+</script>
+
+</body>
+</html>
